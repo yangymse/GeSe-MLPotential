@@ -1,0 +1,51 @@
+variable        ts equal 200.0
+variable        te equal 400.0
+variable        px  equal 0.0
+variable        py  equal 0.0
+shell           mkdir Heating
+units           metal
+atom_style      atomic
+boundary        p p s
+read_data       data.dat
+
+pair_style      agni
+pair_coeff      * *  ./gese.e2   Ge Se
+neighbor        0.2 bin
+neigh_modify    every 5 delay 0 check yes
+mass            1   72.61
+mass            2   78.96
+timestep                0.0002
+thermo_style    custom step temp pe etotal lx ly lz pxx pyy pzz
+thermo                  10
+min_style       cg 
+minimize        1.0e-6 1.0e-6 1000 1000
+compute         1 all ackland/atom
+compute         2 all  pe/atom
+compute         3 all stress/atom NULL
+compute         4 all centro/atom bcc
+
+velocity        all create ${ts} 82765577 rot yes dist gaussian
+fix             1 all npt temp ${ts} ${ts} 0.01 x ${px} ${px} 0.01 y ${py} ${py} 0.01  drag 0.2
+fix             2 all box/relax x ${px} y ${py}
+dump              2 all custom 50000 ./Heating/dump.* id type x y z c_1 c_2 c_4
+
+dump_modify     2 sort id
+restart         500000  ./temp.*
+run             200000
+
+unfix 1
+fix             1 all npt temp ${ts} ${te} 0.01 x ${px} 0.0 0.01 y ${py} ${py} 0.01  drag 0.2
+run             1300000
+
+unfix 1
+fix             1 all npt temp ${te} ${te} 0.01 x 0.0 0.0 0.01 y ${py} ${py} 0.01  drag 0.2
+run             100000
+
+unfix 1
+fix             1 all npt temp ${te} ${ts} 0.01 x 0.0 ${px} 0.01 y ${py} ${py} 0.01  drag 0.2
+run             1300000
+
+unfix 1
+fix             1 all npt temp ${ts} ${ts} 0.01 x ${px} ${px} 0.01 y ${py} ${py} 0.01  drag 0.2
+run             100000
+
