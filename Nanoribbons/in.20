@@ -1,0 +1,63 @@
+variable te  equal 400.0
+variable ts  equal 200.0
+variable px  equal 0.0
+variable py  equal 0.0
+variable ID  equal 20
+
+
+
+shell              mkdir ${ID}-pss 
+units              metal
+atom_style         atomic
+boundary           p s s
+
+read_data          ./data-gese/gese-${ID}
+#read_restart      save.27000
+
+pair_style         agni
+pair_coeff         * *  ../POT/gese.e2   Ge Se
+neighbor           0.2 bin
+neigh_modify       every 5 delay 0 check yes
+mass               1   72.61
+mass               2   78.96
+timestep           0.0002
+
+thermo_style       custom step temp pe etotal lx ly lz pxx pyy pzz
+thermo             50
+
+min_style          sd
+minimize           1.0e-6 1.0e-6 1000 1000
+reset_timestep     0
+
+compute            1 all  pe/atom
+compute            2 all stress/atom NULL
+
+velocity           all create ${ts} 82765577 rot yes dist gaussian
+fix                1 all npt temp ${ts} ${ts} 0.1 x ${px} ${px} 0.1  drag 0.2
+#fix               1 all nvt temp ${ts} ${ts} 0.1
+
+dump               2 all custom 50000 ./${ID}-pss/dump_relax.* id type x y z c_1 c_2[1] c_2[2] 
+dump_modify        2 sort id
+
+restart            200000  ./restart-pss-_${ID}.*
+run                1000000
+
+undump             2
+dump               2 all custom 10000 ./${ID}-pss/dump_relax.* id type x y z c_1 c_2[1] c_2[2]
+dump_modify        2 sort id
+
+unfix              1
+fix                1 all npt temp ${ts} ${te} 0.1 x ${px} ${px} 0.1  drag 0.2
+run                1300000
+
+unfix              1
+fix                1 all npt temp ${te} ${te} 0.1 x ${px} ${px} 0.1 drag 0.2
+run                200000
+
+unfix              1
+fix                1 all npt temp ${te} ${ts} 0.1 x ${px} ${px} 0.1  drag 0.2
+run                1300000
+
+unfix              1
+fix                1 all npt temp ${ts} ${ts} 0.1 x ${px} ${px} 0.1 y ${py} ${py} 0.1  drag 0.2
+run                200000
